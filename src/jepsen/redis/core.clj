@@ -2,17 +2,17 @@
   "Top-level test runner, integration point for various workloads and nemeses."
   (:require [clojure.tools.logging :refer [info warn]]
             [clojure [pprint :refer [pprint]]
-                     [string :as str]]
+             [string :as str]]
             [jepsen [cli :as cli]
-                    [checker :as checker]
-                    [control :as c]
-                    [generator :as gen]
-                    [tests :as tests]
-                    [util :as util :refer [parse-long]]]
+             [checker :as checker]
+             [control :as c]
+             [generator :as gen]
+             [tests :as tests]
+             [util :as util :refer [parse-long]]]
             [jepsen.os.debian :as debian]
             [jepsen.redis [append :as append]
-                          [db     :as rdb]
-                          [nemesis :as nemesis]]))
+             [db     :as rdb]
+             [nemesis :as nemesis]]))
 
 (def workloads
   "A map of workload names to functions that can take opts and construct
@@ -25,7 +25,7 @@
 
 (def nemeses
   "Types of faults a nemesis can create."
-   #{:pause :kill :partition :clock :member :island :mystery})
+  #{:pause :kill :partition :clock :member :island :mystery})
 
 (def standard-nemeses
   "Combinations of nemeses for tests"
@@ -71,28 +71,27 @@
   (let [workload ((workloads (:workload opts)) opts)
         db        (rdb/redis-raft)
         nemesis   (nemesis/package
-                    {:db      db
-                     :nodes   (:nodes opts)
-                     :faults  (set (:nemesis opts))
-                     :partition {:targets [:primaries
-                                           :majority
-                                           :majorities-ring]}
-                     :pause     {:targets [:primaries :majority]}
-                     :kill      {:targets [:primaries :majority :all]}
-                     :interval  (:nemesis-interval opts)})
-        _ (info (pr-str nemesis))
-        ]
+                   {:db      db
+                    :nodes   (:nodes opts)
+                    :faults  (set (:nemesis opts))
+                    :partition {:targets [:primaries
+                                          :majority
+                                          :majorities-ring]}
+                    :pause     {:targets [:primaries :majority]}
+                    :kill      {:targets [:primaries :majority :all]}
+                    :interval  (:nemesis-interval opts)})
+        _ (info (pr-str nemesis))]
     (merge tests/noop-test
            opts
            workload
            {:checker    (checker/compose
-                          {:perf        (checker/perf
-                                          {:nemeses (:perf nemesis)})
-                           :clock       (checker/clock-plot)
-                           :crash       (crash-checker)
-                           :stats       (checker/stats)
-                           :exceptions  (checker/unhandled-exceptions)
-                           :workload    (:checker workload)})
+                         {:perf        (checker/perf
+                                        {:nemeses (:perf nemesis)})
+                          :clock       (checker/clock-plot)
+                          :crash       (crash-checker)
+                          :stats       (checker/stats)
+                          :exceptions  (checker/unhandled-exceptions)
+                          :workload    (:checker workload)})
             :db         db
             :generator  (->> (:generator workload)
                              (gen/stagger (/ (:rate opts)))
@@ -149,14 +148,14 @@
     :parse-fn read-string
     :validate [#(and (number? %) (pos? %)) "must be a positive number"]]
 
-   [nil "--raft-log-max-file-size BYTES" "Size of the raft log, before compaction"
+   [nil "--raft-log-max-file-size=BYTES" "Size of the raft log, before compaction"
     ; Default is 64MB, but we like to break things. This works out to about
     ; every 5 seconds with 5 clients.
     :default 32000
     :parse-fn parse-long
     :validate [pos? "must be positive"]]
 
-   [nil "--raft-log-max-cache-size BYTES" "Size of the in-memory Raft Log cache"
+   [nil "--raft-log-max-cache-size=BYTES" "Size of the in-memory Raft Log cache"
     :default 1000000
     :parse-fn parse-long
     :validate [pos? "must be positive"]]

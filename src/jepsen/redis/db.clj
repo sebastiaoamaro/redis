@@ -2,17 +2,17 @@
   "Database automation"
   (:require [taoensso.carmine :as car :refer [wcar]]
             [clojure.java [io :as io]
-                          [shell :as shell]]
+             [shell :as shell]]
             [clojure [pprint :refer [pprint]]
-                     [string :as str]]
+             [string :as str]]
             [clojure.tools.logging :refer [info warn]]
             [dom-top.core :refer [with-retry]]
             [jepsen [control :as c]
-                    [core :as jepsen]
-                    [db :as db]
-                    [util :as util :refer [parse-long]]]
+             [core :as jepsen]
+             [db :as db]
+             [util :as util :refer [parse-long]]]
             [jepsen.control [net :as cn]
-                            [util :as cu]]
+             [util :as cu]]
             [jepsen.redis [client :as rc]]
             [jepsen.os.debian :as debian]
             [slingshot.slingshot :refer [try+ throw+]]))
@@ -58,8 +58,8 @@
                 (catch [:exit 1] e
                   (if (re-find #"pathspec .+ did not match any file" (:err e))
                     (do ; Ah, we're out of date
-                        (c/exec :git :fetch)
-                        (c/exec :git :checkout version))
+                      (c/exec :git :fetch)
+                      (c/exec :git :checkout version))
                     (throw+ e)))))
     full-dir))
 
@@ -77,8 +77,8 @@
   `(util/with-named-lock build-locks [~node ~repo-name]
      (let [build-file# (str build-dir "/" ~repo-name "/" build-file)]
        (if (try+ (= (str ~version) (c/exec :cat build-file#))
-                (catch [:exit 1] e# ; Not found
-                  false))
+                 (catch [:exit 1] e# ; Not found
+                   false))
          ; Already built
          (str build-dir "/" ~repo-name)
          ; Build
@@ -96,9 +96,9 @@
         (info "Building redis-raft" (:raft-version test))
         (let [build-dir (str dir "/build")]
           (c/cd build-dir
-            (c/exec :mkdir :-p build-dir)
-            (c/exec :cmake :..)
-            (c/exec :make))
+                (c/exec :mkdir :-p build-dir)
+                (c/exec :cmake :..)
+                (c/exec :make))
           build-dir)
         dir))))
 
@@ -110,26 +110,28 @@
       (let [dir (checkout-repo! (:redis-repo test) "redis" (:redis-version test))]
         (info "Building redis" (:redis-version test))
         (c/cd dir
-          (c/exec :make :distclean)
-          (c/exec :make))
+              (c/exec :make :distclean)
+              (c/exec :make))
         dir))))
 
 (defn deploy-redis!
   "Uploads redis binaries built from the given directory."
   [build-dir]
   (info "Deploying redis")
-  (c/exec :mkdir :-p dir)
-  (doseq [f ["redis-server" "redis-cli"]]
-    (c/exec :cp (str build-dir "/src/" f) (str dir "/"))
-    (c/exec :chmod "+x" (str dir "/" f))))
+  ;; (c/exec :mkdir :-p dir)
+  ;; (doseq [f ["redis-server" "redis-cli"]]
+  ;;   (c/exec :cp (str build-dir "/src/" f) (str dir "/"))
+  ;;   (c/exec :chmod "+x" (str dir "/" f)))
+  )
 
 (defn deploy-redis-raft!
   "Uploads redis binaries built from the given directory."
   [build-dir]
   (info "Deploying redis-raft")
-  (c/exec :mkdir :-p dir)
-  (doseq [f ["redisraft.so"]]
-    (c/exec :cp (str build-dir "/" f) (str dir "/"))))
+  ;; (c/exec :mkdir :-p dir)
+  ;; (doseq [f ["redisraft.so"]]
+  ;;   (c/exec :cp (str build-dir "/" f) (str dir "/")))
+  )
 
 (defn cli!
   "Runs a Redis CLI command. Includes a 2s timeout."
@@ -201,9 +203,9 @@
                            (throw+ {:type :raft-info-parse-error
                                     :line line})))))
                    [{} nil]))
-       first
+      first
        ; Drop node keys; they're not real
-       (update-in [:raft :nodes] vals)))
+      (update-in [:raft :nodes] vals)))
 
 (defn await-node-removal
   "Blocks until node id no longer appears in the local (presumably, leader)'s
@@ -223,15 +225,15 @@
           (recur node id))
       (do ;(info :done-waiting-for-removal id
                 ;(with-out-str (pprint r)))
-          :done))))
+        :done))))
 
 (def node-ips
   "Returns a map of node names to IP addresses. Memoized."
   (memoize
-    (fn node-ips- [test]
-      (->> (:nodes test)
-           (map (juxt identity cn/ip))
-           (into {})))))
+   (fn node-ips- [test]
+     (->> (:nodes test)
+          (map (juxt identity cn/ip))
+          (into {})))))
 
 (defn node-state
   "This is a bit tricky. Redis-raft lets every node report its own node id, as
@@ -353,7 +355,7 @@
        ;                removed. A future will be waiting to clean up its data,
        ;                but won't act until *after* the node is no longer
        ;                present in the removing node's node map.
-       meta-members (atom {})]
+        meta-members (atom {})]
     (reify db/DB
       (setup! [this test node]
         (when (:tcpdump test) (db/setup! tcpdump test node))
@@ -366,35 +368,35 @@
           ;        :>> (c/lit "~/.ssh/known_hosts"))
 
           ; Build and install
-          (install-build-tools!)
-          (let [redis      (future (-> test (build-redis! node) deploy-redis!))
-                redis-raft (future (-> test (build-redis-raft! node)
-                                       deploy-redis-raft!))]
-            [@redis @redis-raft]
-
+         ;; (install-build-tools!)
+         (;; let [redis      (future (-> test (build-redis! node) deploy-redis!))
+           ;;     redis-raft (future (-> test (build-redis-raft! node) deploy-redis-raft!))]
+           ;; [@redis @redis-raft]
+          let [redis      (future (-> test deploy-redis!))
+               redis-raft (future (-> test deploy-redis-raft!))]
+           [@redis @redis-raft]
             ; Start
-            (db/start! this test node)
-            (Thread/sleep 1000) ; TODO: block until port bound
 
-            (if (= node (jepsen/primary test))
+           (db/start! this test node)
+           (Thread/sleep 1000) ; TODO: block until port bound
+           (if (= node (jepsen/primary test))
               ; Initialize the cluster on the primary
-              (do (cli! :raft.cluster :init)
-                  (swap! meta-members assoc node {:state :live})
-                  (info "Main init done, syncing")
-                  (jepsen/synchronize test 600)) ; Compilation can be slow
+             (do (cli! :raft.cluster :init)
+                 (swap! meta-members assoc node {:state :live})
+                 (info "Main init done, syncing")
+                 (jepsen/synchronize test 600)) ; Compilation can be slow
               ; And join on secondaries.
-              (do (info "Waiting for main init")
-                  (jepsen/synchronize test 600) ; Ditto
-                  (info "Joining")
+             (do (info "Waiting for main init")
+                 (jepsen/synchronize test 600) ; Ditto
+                 (info "Joining")
                   ; Port is mandatory here
-                  (swap! meta-members assoc node {:state :live})
-                  (cli! :raft.cluster :join (str (jepsen/primary test) ":6379"))))
+                 (swap! meta-members assoc node {:state :live})
+                 (cli! :raft.cluster :join (str (jepsen/primary test) ":6379"))))
 
-            (Thread/sleep 2000)
-            (info :meta-members meta-members)
-            (info :raft-info (raft-info))
-            (info :node-state (with-out-str (pprint (node-state test))))
-            )))
+           (Thread/sleep 2000)
+           (info :meta-members meta-members)
+           (info :raft-info (raft-info))
+           (info :node-state (with-out-str (pprint (node-state test)))))))
 
       (teardown! [this test node]
         ; Welp, time to nuke all our waiting membership threads.
@@ -404,7 +406,14 @@
             (future-cancel remover)))
 
         (db/kill! this test node)
-        (c/su (c/exec :rm :-rf dir))
+        (c/su
+         (c/exec :find dir
+                 :-mindepth "1"       ; Target files/dirs inside `dir`, not `dir` itself
+                 :-not :-name "redis-cli"
+                 :-not :-name "redis-server"
+                 :-not :-name "redisraft.so"
+                 :-not :-name "start_redis_node.sh"
+                 :-delete))          ; Delete matching files/dirs
         (when (:tcpdump test)
           (db/teardown! tcpdump test node)))
 
@@ -419,27 +428,26 @@
       db/Process
       (start! [_ test node]
         (c/su
-          (info node :starting :redis)
-          (cu/start-daemon!
-            {:logfile log-file
-             :pidfile pid-file
-             :chdir   dir}
-            binary
+         (info node :starting :redis)
+         (cu/start-daemon!
+          {:logfile log-file
+           :pidfile pid-file
+           :chdir   dir}
+          binary
             ; config-file
-            :--protected-mode         "no"
-            :--bind                   "0.0.0.0"
-            :--dbfilename             db-file
-            :--loadmodule             (str dir "/redisraft.so")
-            :loglevel                 "debug"
-            :raft-log-filename        raft-log-file
-            :raft-log-max-file-size   (:raft-log-max-file-size test)
-            :raft-log-max-cache-size  (:raft-log-max-cache-size test)
-            :follower-proxy           (get {false "no" true "yes"} (:follower-proxy test))
-            )))
+          "--protected-mode" "no"
+          "--bind" "0.0.0.0"
+          "--dbfilename" "redis.rdb"
+          "--loadmodule" "/opt/redis/redisraft.so"
+          "raft-log-filename=raftlog.db"
+          "loglevel=debug"
+          "follower-proxy=yes"
+          "raft-log-max-file-size=32000"
+          "raft-log-max-cache-size=1000000")))
 
       (kill! [_ test node]
         (c/su
-          (cu/stop-daemon! binary pid-file)))
+         (cu/stop-daemon! binary pid-file)))
 
       db/Pause
       (pause!  [_ test node] (c/su (cu/grepkill! :stop binary)))
@@ -531,9 +539,9 @@
                           ; Update members to clean up this future and mark us
                           ; as dead.
                           (swap! meta-members (fn [m]
-                                           (-> m
-                                               (update node dissoc :remover)
-                                               (update node assoc :state :dead))))))
+                                                (-> m
+                                                    (update node dissoc :remover)
+                                                    (update node assoc :state :dead))))))
               ; Evaluated on a primary, puts us into the leaving state, spawns
               ; the future to complete the remove process, and asks the node to
               ; be removed.
@@ -598,21 +606,21 @@
                     (on-some-primary db test leave!))]
           (or res :no-primary-available)))
 
-          Wipe
-          (wipe! [db test node]
-                 (info "Wiping node")
-                 (c/su
-                   (c/cd dir
-                         (c/exec :rm :-f db-file raft-log-file))))
+      Wipe
+      (wipe! [db test node]
+        (info "Wiping node")
+        (c/su
+         (c/cd dir
+               (c/exec :rm :-f db-file raft-log-file))))
 
-          db/LogFiles
-          (log-files [_ test node]
-                     (concat [log-file
-                              (str dir "/" db-file)
-                              (str dir "/" raft-log-file)]
-                             (filter #(re-matches #".*/core\.?\d*" %) (cu/ls-full dir))
-                             (when (:tcpdump test)
-                               (db/log-files tcpdump test node)))))))
+      db/LogFiles
+      (log-files [_ test node]
+        (concat [log-file
+                 (str dir "/" db-file)
+                 (str dir "/" raft-log-file)]
+                (filter #(re-matches #".*/core\.?\d*" %) (cu/ls-full dir))
+                (when (:tcpdump test)
+                  (db/log-files tcpdump test node)))))))
 
 (def crash-pattern
   "An egrep pattern we use to find crashes in the redis logs."
@@ -624,9 +632,9 @@
   ([test]
    (let [crashes (->> (c/on-many (:nodes test)
                                  (try+
-                                   (c/exec :egrep :-i crash-pattern log-file)
-                                   (catch [:type :jepsen.control/nonzero-exit] e
-                                     nil)))
+                                  (c/exec :egrep :-i crash-pattern log-file)
+                                  (catch [:type :jepsen.control/nonzero-exit] e
+                                    nil)))
                       (keep (fn [[k v :as pair]]
                               (when v pair))))]
      (when (seq crashes)
